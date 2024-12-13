@@ -19,9 +19,46 @@ import clip_official
 
 from attack import *
 
+import os
+import pickle
+from tqdm import tqdm
+
 _tokenizer = _Tokenizer()
 
+class CustomKLDivLoss(nn.Module):
+    """
+    自定义的KL散度损失模块，将 logits 和 target 转换为适当的格式并计算损失。
 
+    Args:
+        num_classes (int): 类别数量，用于 one-hot 编码。
+        reduction (str): 指定如何聚合损失。选项包括 'none', 'batchmean', 'sum', 'mean'。默认为 'batchmean'。
+    """
+    def __init__(self, num_classes, reduction='batchmean'):
+        super(CustomKLDivLoss, self).__init__()
+        self.num_classes = num_classes
+        self.kl_div = nn.KLDivLoss(reduction=reduction)
+
+    def forward(self, logits, targets):
+        """
+        前向传播计算KL散度损失。
+
+        Args:
+            logits (Tensor): 模型的预测输出，形状为 (batch_size, num_classes)，未经过softmax归一化。
+            targets (Tensor): 真实标签，形状为 (batch_size)，为类别索引。
+
+        Returns:
+            Tensor: 计算得到的KL散度损失。
+        """
+        # 将 logits 转换为对数概率
+        log_probs = F.log_softmax(logits, dim=1)
+
+        # 将目标标签转换为 one-hot 向量
+        one_hot_targets = F.one_hot(targets, num_classes=self.num_classes).float()
+
+        # 计算KL散度损失
+        loss = self.kl_div(log_probs, one_hot_targets)
+
+        return loss
 def load_clip_to_cpu(cfg):
     backbone_name = cfg.MODEL.BACKBONE.NAME
     url = clip._MODELS[backbone_name]
@@ -113,7 +150,7 @@ class MultiModalPromptLearner(nn.Module):
         # Minimum can be 1, which defaults to shallow MaPLe
         # compound prompts
         self.compound_prompts_text = nn.ParameterList([nn.Parameter(torch.empty(n_ctx, 512))
-                                                      for _ in range(self.compound_prompts_depth - 1)])
+                                                       for _ in range(self.compound_prompts_depth - 1)])
         for single_para in self.compound_prompts_text:
             nn.init.normal_(single_para, std=0.02)
         # Also make corresponding projection layers, for each prompt
@@ -177,7 +214,8 @@ class MultiModalPromptLearner(nn.Module):
             visual_deep_prompts.append(layer(self.compound_prompts_text[index]))
         # Now the other way around
         # We will project the textual prompts from 512 to 768
-        return prompts, self.proj(self.ctx), self.compound_prompts_text, visual_deep_prompts   # pass here original, as for visual 768 is required
+        return prompts, self.proj(
+            self.ctx), self.compound_prompts_text, visual_deep_prompts  # pass here original, as for visual 768 is required
 
 
 class CustomCLIP(nn.Module):
@@ -198,7 +236,6 @@ class CustomCLIP(nn.Module):
             cfg.TRAINER.MAPLE.PREC,
             cfg.DATASET.NAME
         ).cuda()
-
         self.surrogate = (
             self.vanilla_model if getattr(cfg.TRAINER.MAPLE, "SURROGATE", "vanilla_model") == "vanilla_model"
             else self)
@@ -210,13 +247,17 @@ class CustomCLIP(nn.Module):
         """初始化所有可能用到的攻击方法"""
         self.attacks = {
             'pgd': PGDAttack(
+                depth=cfg.TRAINER.MAPLE.PROMPT_DEPTH,
                 eps=getattr(cfg.TRAINER.MAPLE, "EPSILON", 2. / 255),
                 steps=getattr(cfg.TRAINER.MAPLE, "ADV_STEPS", 10)
             ),
             'fgsm': FGSMAttack(
-                eps=getattr(cfg.TRAINER.MAPLE, "EPSILON", 2. / 255)
-            )
+                depth=cfg.TRAINER.MAPLE.PROMPT_DEPTH,
+                eps=getattr(cfg.TRAINER.MAPLE, "EPSILON", 8. / 255),
+                # steps=100
+            ),
             # 可以添加更多攻击方法
+            # "su":SU()
         }
 
     def _normalize_image(self, image):
@@ -294,6 +335,8 @@ class VanillaCLIP(nn.Module):
         self.dataset_name = dataset_name
         self.prepare_text_features(classnames)
 
+
+
     def prepare_text_features(self, classnames):
         """根据数据集选择对应模板"""
         CUSTOM_TEMPLATES = {
@@ -326,7 +369,7 @@ class VanillaCLIP(nn.Module):
             text_features = self.model.encode_text(tokenized_prompts)
             self.text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
-    def forward(self, image, label=None):
+    def forward(self, image, label=None, return_logits=None):
         normalize = transforms.Normalize([0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711])
         image = normalize(image)
         image_features = self.model.encode_image(image.type(self.dtype))
@@ -334,10 +377,72 @@ class VanillaCLIP(nn.Module):
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)
         logits = image_features @ self.text_features.t()
 
+        # return F.cross_entropy(logits, label)
+        if return_logits:
+            return logits
         return F.cross_entropy(logits, label)
 
-        # return logits
+class Hard_VanillaCLIP(nn.Module):
+    def __init__(self, backbone_name, classnames, prec="fp32", dataset_name="ImageNet"):
+        super().__init__()
+        # self.model, _ = clip_official.clip.load(backbone_name, device='cpu')
+        self.load_model(backbone_name)
+        self.model.cuda()
+        self.dtype = torch.float32 if prec == "fp32" else torch.float16
+        self.dataset_name = dataset_name
+        self.prepare_text_features(classnames)
 
+    def load_model(self,backbone_name):
+
+        # backbone_name = cfg.MODEL.BACKBONE.NAME
+        url = clip._MODELS[backbone_name]
+        model_path = clip._download(url)
+        self.model, _ = clip_official.clip.load(model_path,device='cpu')
+
+    def prepare_text_features(self, classnames):
+        """根据数据集选择对应模板"""
+        CUSTOM_TEMPLATES = {
+            "OxfordPets": "a photo of a {}, a type of pet.",
+            "OxfordFlowers": "a photo of a {}, a type of flower.",
+            "FGVCAircraft": "a photo of a {}, a type of aircraft.",
+            "DescribableTextures": "{} texture.",
+            "EuroSAT": "a centered satellite photo of {}.",
+            "StanfordCars": "a photo of a {}.",
+            "Food101": "a photo of {}, a type of food.",
+            "SUN397": "a photo of a {}.",
+            "Caltech101": "a photo of a {}.",
+            "UCF101": "a photo of a person doing {}.",
+            "ImageNet": "a photo of a {}.",
+            "ImageNetSketch": "a photo of a {}.",
+            "ImageNetV2": "a photo of a {}.",
+            "ImageNetA": "a photo of a {}.",
+            "ImageNetR": "a photo of a {}.",
+        }
+        template = CUSTOM_TEMPLATES.get(
+            self.dataset_name,  # 优先使用数据集对应的模板
+            "a photo of a {}"  # 默认后备模板
+        )
+        print(f"Using template: {template}")
+
+        prompts = [template.format(c.replace("_", " ")) for c in classnames]
+        tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts]).cuda()
+
+        with torch.no_grad():
+            text_features = self.model.encode_text(tokenized_prompts)
+            self.text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+    def forward(self, image, label=None, return_logits=True):
+        normalize = transforms.Normalize([0.48145466, 0.4578275, 0.40821073], [0.26862954, 0.26130258, 0.27577711])
+        image = normalize(image)
+        image_features = self.model.encode_image(image.type(self.dtype))
+
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        logits = image_features @ self.text_features.t()
+
+        # return F.cross_entropy(logits, label)
+        if return_logits:
+            return logits
+        return F.cross_entropy(logits, label)
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
@@ -345,7 +450,8 @@ def _get_clones(module, N):
 
 @TRAINER_REGISTRY.register()
 class MaPLe(TrainerX):
-
+    # def __init__(self):
+    #     super().__init__()
     def check_cfg(self, cfg):
         assert cfg.TRAINER.MAPLE.PREC in ["fp16", "fp32", "amp"]
         self.adv_train = getattr(cfg.TRAINER.MAPLE, "ADV_TRAIN", True)
@@ -406,6 +512,8 @@ class MaPLe(TrainerX):
         print("Building custom CLIP")
         self.model = CustomCLIP(cfg, classnames, clip_model)
 
+
+
         print("Turning off gradients in both the image and the text encoder")
         name_to_update = "prompt_learner"
 
@@ -442,6 +550,13 @@ class MaPLe(TrainerX):
             print(f"Multiple GPUs detected (n_gpus={device_count}), use all of them!")
             self.model = nn.DataParallel(self.model)
 
+        if cfg.TEST.HARD_PROMPT == True:
+            self.hard_model = Hard_VanillaCLIP(
+                cfg.MODEL.BACKBONE.NAME,
+                classnames,
+                cfg.TRAINER.MAPLE.PREC,
+                cfg.DATASET.NAME
+            ).cuda()
     # def forward_backward(self, batch):
     #     image, label = self.parse_batch_train(batch)
     #
@@ -532,4 +647,162 @@ class MaPLe(TrainerX):
             # set strict=False
             self._models[name].load_state_dict(state_dict, strict=False)
 
-    def generate(self,):
+    @torch.no_grad()
+    def inference(self, inference_output_dir="output/debug.pkl", split=None, hard_prompt=False):
+        """Generate model outputs for a given split and save them to a .pkl file."""
+        self.set_model_mode("eval")
+        self.evaluator.reset()
+
+        if split is None:
+            split = self.cfg.TEST.SPLIT
+
+        if split == "val" and self.val_loader is not None:
+            data_loader = self.val_loader
+        else:
+            split = "test"  # in case val_loader is None
+            data_loader = self.test_loader
+
+        print(f"Generate outputs on the *{split}* set")
+
+        # file_name = f"{split}_data.pkl"
+
+        if os.path.exists(inference_output_dir):
+            # Load generated outputs from a .pkl file
+            with open(inference_output_dir, "rb") as f:
+                data = pickle.load(f)
+            outputs = data["outputs"]
+            labels = data["labels"]
+        else:
+            # Generate outputs and save them to a .pkl file
+            outputs = []
+            labels = []
+
+            for batch_idx, batch in enumerate(tqdm(data_loader)):
+                input, label = self.parse_batch_test(batch)
+                if hard_prompt:
+                    output = self.hard_model(input, return_logits=True)
+                else:
+                    output = self.model_inference(input)
+                outputs.append(output.detach().cpu())
+                labels.append(label.detach().cpu())
+
+            # Save generated outputs to a .pkl file
+            data = {"outputs": outputs, "labels": labels}
+            with open(inference_output_dir, "wb") as f:
+                pickle.dump(data, f)
+
+            print(f"Generated outputs saved to {inference_output_dir}")
+
+        return outputs, labels
+
+    def adv_inference(self, adv_image_dir='output/debug_adv_image.pkl',adv_inference_output_dir="output/debug_adv.pkl", attack_type="pgd",split=None, hard_prompt=False):
+        """Generate model outputs for a given split and save them to a .pkl file."""
+        """
+        args:
+            adv_inference_output_dir : 保存模型输出的inference_logits结果的路径
+            split : 需要inference的split
+            hard_prompt : 是否使用hard prompt 
+        return:
+            outputs : 模型输出的logits和label      
+        """
+        self.set_model_mode("eval")
+        self.evaluator.reset()
+
+        if split is None:
+            split = self.cfg.TEST.SPLIT
+
+        if split == "val" and self.val_loader is not None:
+            data_loader = self.val_loader
+        else:
+            split = "test"  # in case val_loader is None
+            data_loader = self.test_loader
+
+        print(f"Generate outputs on the *{split}* set")
+
+        # file_name = f"{split}_data.pkl"
+
+        if os.path.exists(adv_inference_output_dir):
+            # Load generated outputs from a .pkl file
+            with open(adv_inference_output_dir, "rb") as f:
+                data = pickle.load(f)
+            outputs = data["outputs"]
+            labels = data["labels"]
+        else:
+            # Generate outputs and save them to a .pkl file
+            outputs = []
+            labels = []
+            if not os.path.exists(adv_image_dir):
+                ADV_IMAGES=[]
+            else:
+                with open(adv_image_dir,'rb') as f:
+                    ADV_IMAGES=pickle.load(f)
+            for batch_idx, batch in enumerate(tqdm(data_loader)):
+
+                input, label = self.parse_batch_test(batch)
+                if batch_idx>(len(ADV_IMAGES)-1):
+                    adv_image=self.model.generate_adv(input,label, attack_type=attack_type)
+                else:
+                    adv_image=ADV_IMAGES[batch_idx].cuda()
+                # adv_image=None
+                if not hard_prompt:
+                    output = self.model(adv_image)
+                else:
+                    # adv_image = self.model.generate_adv(input, label)
+                    with torch.no_grad():
+                        output = self.hard_model(adv_image, return_logits=True)
+
+                outputs.append(output.detach().cpu())
+                labels.append(label.detach().cpu())
+                if (adv_image is not None) and (batch_idx>(len(ADV_IMAGES)-1)):
+                    adv_image_cpu=adv_image.detach().cpu().clone()
+                    ADV_IMAGES.append(adv_image_cpu)
+                    if batch_idx % 500 == 0 or batch_idx == len(data_loader)-1:
+                        with open(adv_image_dir,"wb") as f:
+                            pickle.dump(ADV_IMAGES,f)
+                    # del adv_image
+                    torch.cuda.empty_cache()
+
+            # Save generated outputs to a .pkl file
+            data = {"outputs": outputs, "labels": labels}
+            with open(adv_inference_output_dir, "wb") as f:
+                pickle.dump(data, f)
+
+            print(f"Generated outputs saved to {adv_inference_output_dir}")
+
+        return outputs, labels
+
+    def evaluation(self, outputs, labels, split=None):
+        """Evaluate model performance using generated outputs."""
+        self.evaluator.reset()
+
+        # print(f"Evaluate on the *{split}* set")
+
+        for output, label in zip(outputs, labels):
+            self.evaluator.process(output, label)
+
+        results = self.evaluator.evaluate()
+
+        for k, v in results.items():
+            tag = f"{split}/{k}"
+            self.write_scalar(tag, v, self.epoch)
+
+        return list(results.values())[0]
+
+    def test(self,inference_output_dir="output/debug.pkl", split=None):
+        output,label=self.inference(inference_output_dir=inference_output_dir,split=split)
+        result=self.evaluation(output,label,split=split)
+
+    def test_adv(self,adv_image_dir="output/debug_adv_image.pkl",adv_inference_output_dir="output/debug_adv.pkl", attack_type="pgd",split=None):
+        output, label = self.adv_inference(adv_image_dir=adv_image_dir,adv_inference_output_dir=adv_inference_output_dir, attack_type=attack_type,split=split)
+        result = self.evaluation(output, label, split=split)
+
+    def test_hard_prompt(self, inference_output_dir="output/debug_hard_prompt.pkl", split=None):
+        output, label = self.inference(inference_output_dir=inference_output_dir, split=split, hard_prompt=True)
+        result = self.evaluation(output, label, split=split)
+
+    def test_hard_prompt_adv(self, adv_image_dir="output/debug_adv_image.pkl",adv_inference_output_dir="output/debug_adv_hard_prompt.pkl", attack_type="pgd",split=None):
+        output, label = self.adv_inference(adv_image_dir=adv_image_dir,adv_inference_output_dir=adv_inference_output_dir,attack_type=attack_type,split=split, hard_prompt=True)
+        result = self.evaluation(output, label, split=split)
+
+
+
