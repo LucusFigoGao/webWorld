@@ -75,6 +75,36 @@ class MCTS_Task(SearchTask):
                 raise ValueError("Iteration limit must be greater than one")
             self.limit_type = 'iterations'
     
+    def get_next_step(self, trace, state):
+        """
+            output:
+                >>> child.action = Policy_model(node.trace, node.state)
+            input: 
+                :: node.trace: action history till current node
+                :: node.state: current state of web page
+        """
+        pass
+
+    def get_next_state_predict(self, state, action):
+        """
+            output:
+                >>> child.state = World_model(node.state, child.action)
+            input: 
+                :: node.state: current state of web page
+                :: child.action: current action from node to child
+        """
+        pass
+    
+    def get_step_value(self, trace, state):
+        """
+            output:
+                >>> child.state = Reward_model(child.trace, child.state)
+            input: 
+                :: child.trace: action history till child
+                :: child.state: next state of web page
+        """
+        pass
+    
     def run(self):
         self.clear_cache()
         self.set_limit_type()

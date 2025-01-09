@@ -52,7 +52,9 @@ def expand(node: treeNode, mcts_task: MCTS_Task):
         :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
     """
     # step1
-    node = get_next_step_expand(node, mcts_task)    # step two
+    
+    # step two
+    node = get_next_step_expand(node, mcts_task)
     pass
 
 
@@ -63,7 +65,7 @@ def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
         proposal = ''
         cnt = 3
         while not proposal and cnt:
-            proposal = mcts_task.get_next_step()
+            proposal = mcts_task.get_next_step(trace=node.trace, state=node.state)
             cnt -= 1
         if not proposal:
             continue
@@ -74,15 +76,11 @@ def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
             
             node.append_children(action)
             
-            child = node.children[action]
+            child: treeNode = node.children[action]
+                
+            child.update_state(mcts_task.get_next_state_predict(state=node.state, action=action))
             
-            state = mcts_task.get_next_state_predict()
-            
-            child.update_state(state)
-            
-            value = mcts_task.get_step_value()
-            
-            child.update_value(value)
+            child.update_value(mcts_task.get_step_value(child.trace, child.state))
             
     node.isFullyExpanded = True
     
