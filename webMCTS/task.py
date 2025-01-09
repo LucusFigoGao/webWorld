@@ -34,7 +34,10 @@ class MCTS_Task(SearchTask):
         roll_forward_steps=3,                       # int, the number of rollout steps
         time_limit=None,                            # int, time searching limit
         iteration_limit=None,                       # int, iteration searching limit
-        
+        reward_model_type='vm',                     # str, reward model type (outcome reward)
+        end_gate=0.9,                               # int, threshold of task finished reward
+        exploration_constant=0.7,                   # float, MCTS UCB epsilon
+        inf=1.0,                                    # float, MCTS UCB avoid stackflow
         
         ) -> None:
         super().__init__(data, policy_method, reward_method, world_method)
@@ -47,6 +50,12 @@ class MCTS_Task(SearchTask):
 
         self.time_limit = time_limit
         self.iteration_limit = iteration_limit
+        
+        self.end_gate = end_gate
+        self.reward_model_type = reward_model_type
+        
+        self.INF = inf
+        self.exploration_constant = exploration_constant
         
     def clear_cache(self):
         self.value_cache = {}
