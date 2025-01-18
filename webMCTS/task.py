@@ -38,6 +38,8 @@ class MCTS_Task(SearchTask):
         end_gate=0.9,                               # int, threshold of task finished reward
         exploration_constant=0.7,                   # float, MCTS UCB epsilon
         inf=1.0,                                    # float, MCTS UCB avoid stackflow
+        low=0,                                      # float
+        alpha=0.5,                                  # float, MCTS node value weights
         
         ) -> None:
         super().__init__(data, policy_method, reward_method, world_method)
@@ -54,7 +56,9 @@ class MCTS_Task(SearchTask):
         self.end_gate = end_gate
         self.reward_model_type = reward_model_type
         
+        self.low = low
         self.INF = inf
+        self.alpha = alpha
         self.exploration_constant = exploration_constant
         
     def clear_cache(self):
@@ -75,7 +79,7 @@ class MCTS_Task(SearchTask):
                 raise ValueError("Iteration limit must be greater than one")
             self.limit_type = 'iterations'
     
-    def get_next_step(self, trace, state):
+    def get_next_action(self, trace, state):
         """
             output:
                 >>> child.action = Policy_model(node.trace, node.state)

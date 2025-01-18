@@ -52,10 +52,8 @@ self.isTerminal = False             # value acceptable, whether task finished
 * function: get_best_child(child_node): node                                            // 选择UCB策略筛选出扩展节点中最优的节点
 * function: greedy_policy_rollout(node, mcts_task): list[string]                        // 扩展广度为B，模拟深度为K
     while K, do:
-    * function: get_next_step_expand(node, mcts_task): list[string]                     // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
-* function: mcts_task.get_reflection(node.trace): string                                // 反思当前节点向上回溯的轨迹是否完成任务(**涉及调用一次反思LLM**)
-思考：
-* 基础版本的`mcts_task.get_reflection`仅考虑全部模拟完成之后的轨迹反思，而不在每一步轨迹之后计算得分
+    * function: get_next_step_rollout(node, mcts_task): list[string]                    // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
+
 
 
 ## MCTS (更新&分析)
@@ -66,6 +64,6 @@ self.isTerminal = False             # value acceptable, whether task finished
 * 2025.01.09 扩展阶段暂时不考虑加reflection
 
 ### rollout
-* 
+* 2025.01.18 完成随机/贪婪模拟阶段，同样暂时不考虑加reflection
 
 ### back propagation

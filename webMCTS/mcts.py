@@ -1,11 +1,13 @@
 import math
 import time
+import numpy
+import random
 import random as rd
 
 from webMCTS.base import treeNode
 from webMCTS.task import MCTS_Task
 
-
+# select
 def selectNode(node: treeNode, mcts_task: MCTS_Task):
     while node.isFullyExpanded:
         node = getBestChild(node, mcts_task)
@@ -15,7 +17,7 @@ def selectNode(node: treeNode, mcts_task: MCTS_Task):
     else:
         return False, node
 
-# 根据UCB原则选择最优的节点
+
 def getBestChild(node: treeNode, mcts_task: MCTS_Task):
     """
         UCB(C) = v_{C} + \epsilon * \sqrt{ \frac{\ln{n_{parent}}}{n_{C}} }
@@ -46,18 +48,7 @@ def isTerminal(node: treeNode, mcts_task):
     else:
         return False
 
-
-def expand(node: treeNode, mcts_task: MCTS_Task):
-    """
-        :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
-    """
-    # step1
-    
-    # step two
-    node = get_next_step_expand(node, mcts_task)
-    pass
-
-
+# expand
 def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
     action_list = []
     
@@ -65,7 +56,7 @@ def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
         proposal = ''
         cnt = 3
         while not proposal and cnt:
-            proposal = mcts_task.get_next_step(trace=node.trace, state=node.state)
+            proposal = mcts_task.get_next_action(trace=node.trace, state=node.state)
             cnt -= 1
         if not proposal:
             continue
@@ -87,17 +78,104 @@ def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
     return node
 
 
-def greedyPolicy(node: treeNode, mcts_task: MCTS_Task):
+def expand(node: treeNode, mcts_task: MCTS_Task):
+    """
+        :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
+    """
+    # step1
+    
+    # step two
+    node = get_next_step_expand(node, mcts_task)
     pass
 
+# rollout
+def get_next_step_random_rollout(trace, state, mcts_task: MCTS_Task):
+    # get next action
+    action_list = []
+    for i in range(mcts_task.roll_branch):
+        proposal = ''
+        cnt = 3
+        while not proposal and cnt:
+            proposal = mcts_task.get_next_action(trace=trace, state=state)
+            cnt -= 1
+        if not proposal:
+            continue
+        action_list.append(proposal)
+    
+    action = random.choice(action_list)
+    new_trace = trace + action
+    new_state = mcts_task.get_next_state_predict(state=state, action=action)
+    new_value = mcts_task.get_step_value(new_trace, new_state)
+    return new_trace, new_state, new_value
+    
 
 def randomPolicy(node: treeNode, mcts_task: MCTS_Task):
-    pass
-
-
-def back_propagate(node: treeNode):
-    pass
+    max_V = mcts_task.low
+    trace = node.trace
+    state = node.state
+    cur_step = node.depth + 1
     
+    for i in range(mcts_task.roll_forward_steps):
+        trace, state, value = get_next_step_random_rollout(trace, state, mcts_task)
+        cur_step += 1
+        if value > max_V:
+            max_V = value
+        
+    return max_V
+
+
+def get_next_step_greedy_rollout(trace, state, mcts_task: MCTS_Task):
+    # get next action
+    action_list = []
+    for i in range(mcts_task.roll_branch):
+        proposal = ''
+        cnt = 3
+        while not proposal and cnt:
+            proposal = mcts_task.get_next_action(trace=trace, state=state)
+            cnt -= 1
+        if not proposal:
+            continue
+        action_list.append(proposal)
+    new_traces = [trace + action for action in action_list]
+    
+    # get next state predict
+    new_states = [mcts_task.get_next_state_predict(state=state, action=action) for action in action_list]
+    
+    # get step value
+    new_values = [mcts_task.get_step_value(t, s) for t, s in zip(new_traces, new_states)]
+    
+    return new_traces, new_states, new_values
+
+
+def greedyPolicy(node: treeNode, mcts_task: MCTS_Task):
+    max_V = mcts_task.low
+    trace = node.trace
+    state = node.state
+    cur_step = node.depth + 1
+    
+    for i in range(mcts_task.roll_forward_steps):
+        new_traces, new_states, new_values = get_next_step_greedy_rollout(trace, state)
+        cur_step += 1
+        idx = numpy.argmax(new_values)
+        trace, state, value = new_traces[idx], \
+                                             new_states[idx], \
+                                             new_values[idx]
+        if value > max_V:
+            max_V = value
+    
+    return max_V
+        
+# back propagate
+def back_propagate(node: treeNode):
+    while node is not None:
+        node.numVisits += 1
+        if node.isFullyExpanded:
+            child_Vs = [child.V * child.numVisits for child in node.children.values()]
+            total_num_visits = sum([child.numVisits for child in node.children.values()])
+            if total_num_visits > 0:
+                node.V = sum(child_Vs) / total_num_visits
+        node = node.parent
+
 
 def executeRound(root: treeNode, mcts_task: MCTS_Task):
     
@@ -113,6 +191,8 @@ def executeRound(root: treeNode, mcts_task: MCTS_Task):
     print('-' * 40, '\n模拟搜索阶段\n')
     roll_node = getBestChild(node, mcts_task)
     best_V = greedyPolicy(roll_node, mcts_task) if mcts_task.roll_policy == 'greedy' else randomPolicy(roll_node, mcts_task)
+    roll_node.V = roll_node.V * (1 - mcts_task.alpha) + best_V * mcts_task.alpha
+    roll_node.numVisits += 1
     
     print('-' * 40, '\n反向传播阶段\n')
     back_propagate(node)
