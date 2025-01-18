@@ -14,7 +14,7 @@ self.isFullyExpanded = False        # expanded, whether has childnode
 self.isTerminal = False             # value acceptable, whether task finished
 ```
 
-### expand
+### expand(2025.01.09)
 * function: mcts_task.get_reflection(node.trace): string                             // 反思当前节点向上回溯的轨迹是否完成任务(**涉及调用一次反思LLM**)
 * function: get_next_step_expand(node, mcts_task): list[string]                      // 根据当前节点进行扩展(广度为B)
     * function: mcts_task.get_next_action(node.state, node.trace): string            // 根据任务`mcts_task.question`, 当前状态`node.state`获得`action`(**涉及调用一次策略LLM**)
@@ -48,6 +48,16 @@ self.isTerminal = False             # value acceptable, whether task finished
 * 从完整的逻辑看，不管是预测action还是用action作为输入，都是用LLM自己产生的`raw_action`，因此如果不涉及真实环境操作的话，可以不用提取可执行的`action`
 
 
+### rollout(2025.01.18)
+* function: get_best_child(child_node): node                                            // 选择UCB策略筛选出扩展节点中最优的节点
+* function: greedy_policy_rollout(node, mcts_task): list[string]                        // 扩展广度为B，模拟深度为K
+    while K, do:
+    * function: get_next_step_expand(node, mcts_task): list[string]                     // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
+* function: mcts_task.get_reflection(node.trace): string                                // 反思当前节点向上回溯的轨迹是否完成任务(**涉及调用一次反思LLM**)
+思考：
+* 基础版本的`mcts_task.get_reflection`仅考虑全部模拟完成之后的轨迹反思，而不在每一步轨迹之后计算得分
+
+
 ## MCTS (更新&分析)
 ### select
 * 2025.01.09 完成选择部分，这部分不涉及请求大模型，可以直接根据UCB进行节点的遍历
@@ -56,6 +66,6 @@ self.isTerminal = False             # value acceptable, whether task finished
 * 2025.01.09 扩展阶段暂时不考虑加reflection
 
 ### rollout
-
+* 
 
 ### back propagation
