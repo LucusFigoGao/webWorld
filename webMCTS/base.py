@@ -26,7 +26,7 @@ class treeNode(object):
     def update_trace_from_parent(self):
         """
             设计时应该查看policy model应该接受什么格式的轨迹数据(最好的总结形式是raw_action)
-            <step>Let's think step-by-step. This page has a link whose ID is [169], which can be used to find directions between two points. 
+            <step>Let\'s think step-by-step. This page has a link whose ID is [169], which can be used to find directions between two points. 
                 In this case, we want directions from Carnegie Mellon University to the top computer science school in Massachusetts, 
                 which is MIT. Clicking on this link will probably take me to a page where I can input these two locations and find the 
                 driving distance. In summary, the next action I will perform is ```click [169]```.</step>

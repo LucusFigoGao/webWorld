@@ -5,10 +5,9 @@ import random
 import random as rd
 
 from webMCTS.base import treeNode
-from webMCTS.task import MCTS_Task
 
 # select
-def selectNode(node: treeNode, mcts_task: MCTS_Task):
+def selectNode(node: treeNode, mcts_task):
     while node.isFullyExpanded:
         node = getBestChild(node, mcts_task)
     if isTerminal(node, mcts_task):
@@ -18,7 +17,7 @@ def selectNode(node: treeNode, mcts_task: MCTS_Task):
         return False, node
 
 
-def getBestChild(node: treeNode, mcts_task: MCTS_Task):
+def getBestChild(node: treeNode, mcts_task):
     """
         UCB(C) = v_{C} + \epsilon * \sqrt{ \frac{\ln{n_{parent}}}{n_{C}} }
         :: Hint: If n_{C} is 0, it may lead to the stackoverlow, 
@@ -49,7 +48,7 @@ def isTerminal(node: treeNode, mcts_task):
         return False
 
 # expand
-def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
+def get_next_step_expand(node: treeNode, mcts_task):
     action_list = []
     
     for i in range(mcts_task.branch):
@@ -78,7 +77,7 @@ def get_next_step_expand(node: treeNode, mcts_task: MCTS_Task):
     return node
 
 
-def expand(node: treeNode, mcts_task: MCTS_Task):
+def expand(node: treeNode, mcts_task):
     """
         :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
     """
@@ -89,7 +88,7 @@ def expand(node: treeNode, mcts_task: MCTS_Task):
     pass
 
 # rollout
-def get_next_step_random_rollout(trace, state, mcts_task: MCTS_Task):
+def get_next_step_random_rollout(trace, state, mcts_task):
     # get next action
     action_list = []
     for i in range(mcts_task.roll_branch):
@@ -109,7 +108,7 @@ def get_next_step_random_rollout(trace, state, mcts_task: MCTS_Task):
     return new_trace, new_state, new_value
     
 
-def randomPolicy(node: treeNode, mcts_task: MCTS_Task):
+def randomPolicy(node: treeNode, mcts_task):
     max_V = mcts_task.low
     trace = node.trace
     state = node.state
@@ -124,7 +123,7 @@ def randomPolicy(node: treeNode, mcts_task: MCTS_Task):
     return max_V
 
 
-def get_next_step_greedy_rollout(trace, state, mcts_task: MCTS_Task):
+def get_next_step_greedy_rollout(trace, state, mcts_task):
     # get next action
     action_list = []
     for i in range(mcts_task.roll_branch):
@@ -147,7 +146,7 @@ def get_next_step_greedy_rollout(trace, state, mcts_task: MCTS_Task):
     return new_traces, new_states, new_values
 
 
-def greedyPolicy(node: treeNode, mcts_task: MCTS_Task):
+def greedyPolicy(node: treeNode, mcts_task):
     max_V = mcts_task.low
     trace = node.trace
     state = node.state
@@ -177,7 +176,7 @@ def back_propagate(node: treeNode):
         node = node.parent
 
 
-def executeRound(root: treeNode, mcts_task: MCTS_Task):
+def executeRound(root: treeNode, mcts_task):
     
     print('-' * 40, '\n选择节点阶段\n')
     flag, node = selectNode(root, mcts_task)
@@ -200,7 +199,7 @@ def executeRound(root: treeNode, mcts_task: MCTS_Task):
     return False, node, root
     
 
-def MCTS_search(mcts_task: MCTS_Task):
+def MCTS_search(mcts_task):
     root = treeNode(action='')
     root.update_state(state=mcts_task.init_state)   # update the initial state
 
@@ -223,6 +222,6 @@ def MCTS_search(mcts_task: MCTS_Task):
     return root, None, None
 
 
-def MCTS(mcts_task: MCTS_Task):
+def MCTS(mcts_task):
     root, node, finish = MCTS_search(mcts_task)
     pass

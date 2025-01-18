@@ -1,5 +1,10 @@
 from webMCTS.mcts import MCTS
 
+
+def get_proposal():
+    pass
+
+
 class SearchTask(object):
     def __init__(self, data, policy_method, reward_method, world_method) -> None:
         """
@@ -18,6 +23,90 @@ class SearchTask(object):
     
     def clear_cache(self):
         self.value_cache = {}
+    
+    @staticmethod
+    def get_next_action_prompt_wrap(intent: str, trace: str, state: str, mode: str = "chat") -> str:
+        
+        from webMCTS.prompt import webarena_cot_id_actrees2str_no_na_prompt as prompt_template
+        
+        intro = prompt_template["intro"]               # prompt intro
+        examples = prompt_template["examples"]         # few examples
+        inputs = prompt_template["inputs"]             # input template
+        
+        current = inputs.format(
+            objective=intent,                               # instruction
+            observation=state,                              # current web state
+            previous_action=trace,                          # action trace
+        )
+
+        if mode == "chat":
+            """
+                [
+                    {"role": "system", "content": intro}, 
+                    {"role": "system", "name": "example_user", "content": example_input}, 
+                    {"role": "system", "name": "example_assistant", "content": example_output}, 
+                    {"role": "user", "content": current}
+                ]
+                >>> {"role": "system", "content": output}
+            """
+            message = [{"role": "system", "content": intro}]
+            for (x, y) in examples:
+                message.append(
+                    {
+                        "role": "system",
+                        "name": "example_user",
+                        "content": x,
+                    }
+                )
+                message.append(
+                    {
+                        "role": "system",
+                        "name": "example_assistant",
+                        "content": y,
+                    }
+                )
+            message.append({"role": "user", "content": current})
+        
+        elif mode == "completion":
+            message = f"{intro}\n\n"
+            message += "Here are a few examples:\n"
+            for example in examples:
+                message += f"Observation\n:{example[0]}\n\n"
+                message += f"Action: {example[1]}\n\n"
+            message += "Now make prediction given the observation\n\n"
+            message += f"Observation\n:{current}\n\n"
+            message += "Action:"
+        
+        return message
+
+    @staticmethod
+    def get_next_state_predict_prompt_wrap(state: str, action: str, mode: str = "chat") -> str:
+        
+        from webMCTS.prompt import world_model_next_state_prediction_prompt as prompt_template
+        
+        intro = prompt_template["intro"]               # prompt intro
+        inputs = prompt_template["inputs"]             # input template
+        
+        current = inputs.format(
+            observation=f"```{state}```",                   # current web state
+            action=f"{action}",                             # action trace
+        )
+        
+        if mode == "chat":
+            message = [
+                {"role": "system", "content": intro}, 
+                {"role": "user", "content": current}
+            ]
+        elif mode == "completion":
+            message = f"{intro}\n\n"
+            message += f"The current web page observation: ```{state}```\n\n"
+            message += f"The previous action: {action}"
+        return message
+            
+    
+    @staticmethod
+    def get_step_value_prompt_wrap():
+        pass
 
 
 class MCTS_Task(SearchTask):
@@ -87,9 +176,10 @@ class MCTS_Task(SearchTask):
                 :: node.trace: action history till current node
                 :: node.state: current state of web page
         """
-        pass
-        
-
+        prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode="chat")
+        response = get_proposal(prompt)
+        return response
+    
     def get_next_state_predict(self, state, action):
         """
             output:
@@ -114,4 +204,3 @@ class MCTS_Task(SearchTask):
         self.clear_cache()
         self.set_limit_type()
         node, finish, root = MCTS(self)     # input mcts_task
-    

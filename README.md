@@ -54,7 +54,7 @@ self.isTerminal = False             # value acceptable, whether task finished
     while K, do:
     * function: get_next_step_rollout(node, mcts_task): list[string]                    // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
 
-### API请求prompt收集(2015.01.18)
+### API请求prompt收集(2025.01.18)
 * function: mcts_task.get_next_action(trace, state)
     * [TREE SEARCH FOR LANGUAGE MODEL AGENTS](./prompt.md#action-navigation)
     * [WebArena](prompt.md#p_cot_id_actree_2s_no_na)
