@@ -54,7 +54,19 @@ self.isTerminal = False             # value acceptable, whether task finished
     while K, do:
     * function: get_next_step_rollout(node, mcts_task): list[string]                    // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
 
+### API请求prompt收集(2015.01.18)
+* function: mcts_task.get_next_action(trace, state)
+    * [TREE SEARCH FOR LANGUAGE MODEL AGENTS](./prompt.md#action-navigation)
+    * [WebArena](prompt.md#p_cot_id_actree_2s_no_na)
 
+* function: mcts_task.get_next_state_predict
+    * [WMA-abstraction](./prompt.md#transition-focused-observation-abstraction)
+    * [WMA-our-improvement](./prompt.md#ours)
+
+* function: mcts_task.get_step_value
+    * [OS-Genesis](./prompt.md#trajectory-reward-model-prompt)
+    * [TREE SEARCH FOR LANGUAGE MODEL AGENTS](./prompt.md#reward)
+    * [AGENTTREK](./prompt.md#reward-1)
 
 ## MCTS (更新&分析)
 ### select
@@ -67,3 +79,5 @@ self.isTerminal = False             # value acceptable, whether task finished
 * 2025.01.18 完成随机/贪婪模拟阶段，同样暂时不考虑加reflection
 
 ### back propagation
+* 2025.01.18 完成回溯部分，保留了和ReST-MCTS*相同的回溯策略
+

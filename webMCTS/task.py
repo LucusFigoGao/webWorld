@@ -88,6 +88,7 @@ class MCTS_Task(SearchTask):
                 :: node.state: current state of web page
         """
         pass
+        
 
     def get_next_state_predict(self, state, action):
         """
