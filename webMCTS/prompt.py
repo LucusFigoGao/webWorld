@@ -114,7 +114,7 @@ If you want to visit other websites, check out the homepage at http://homepage.c
 To be successful, it is very important to follow the following rules:
 1. Please think step by step based on the current page observation and the actions taken, and give the maximum possible next page observation.
 2. You should ensure the richness of the observations of the web page to be predicted and support the continuous operation process.
-3. Please generate the content of the next page in the correct format. Start with the phrase "In summary, the next web page observation is" and then add supplements within ``````. For example, "In summary, the next web page observation is ```Tab 0 (current): Projects \u00b7 ````".
+3. Please generate the content of the next page in the correct format. Start with the phrase "In summary, the next web page observation is" and then add supplements within ```<your generated contents>```. For example, "In summary, the next web page observation is ```Tab 0 (current): Projects \u00b7 ````".
 4. When you think you have achieved the full content prediction of the next page, issue a stop operation with [END]. Do not generate any content after stopping.""", 
 
 	"inputs": """The current web page observation: ```{observation}```\nThe previous action: {action}""",

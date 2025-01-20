@@ -1,8 +1,5 @@
+from models.get_response import *
 from webMCTS.mcts import MCTS
-
-
-def get_proposal():
-    pass
 
 
 class SearchTask(object):
@@ -188,7 +185,10 @@ class MCTS_Task(SearchTask):
                 :: node.state: current state of web page
                 :: child.action: current action from node to child
         """
-        pass
+        prompt = self.get_next_state_predict_prompt_wrap(state, action, mode="chat")
+        response = get_state(prompt, self.world_method)
+        response = washing_response_4_world_model(response)
+        return response
     
     def get_step_value(self, trace, state):
         """
@@ -198,7 +198,9 @@ class MCTS_Task(SearchTask):
                 :: child.trace: action history till child
                 :: child.state: next state of web page
         """
-        pass
+        prompt = self.get_step_value_prompt_wrap(trace, state, mode="chat")
+        response = get_value(prompt)
+        return response
     
     def run(self):
         self.clear_cache()
