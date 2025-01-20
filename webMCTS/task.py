@@ -99,7 +99,6 @@ class SearchTask(object):
             message += f"The current web page observation: ```{state}```\n\n"
             message += f"The previous action: {action}"
         return message
-            
     
     @staticmethod
     def get_step_value_prompt_wrap():
@@ -174,7 +173,8 @@ class MCTS_Task(SearchTask):
                 :: node.state: current state of web page
         """
         prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode="chat")
-        response = get_proposal(prompt)
+        response = get_proposal(prompt, self.policy_method)
+        response = washing_action_4_policy_model(response)
         return response
     
     def get_next_state_predict(self, state, action):

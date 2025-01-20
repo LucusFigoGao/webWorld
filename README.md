@@ -84,6 +84,7 @@ self.isTerminal = False             # value acceptable, whether task finished
 ### API请求
 * 2025.01.18 完成API请求prompt收集，实现策略、世界模型的模版封装过程；奖励模型的设计已经同步到军洪那边；
 * 2025.01.20 完成世界模型部分，包括提示模版包装、API请求、回复清洗流程；
+* 2025.01.20 完成策略模型部分，包括提示模版包装、API请求、回复清洗流程；
 
 ## ToDo List
 * 世界模型的预测评估，包括1、设计next state预测准确率设计，2、在API和SFT的模型上分别测试；

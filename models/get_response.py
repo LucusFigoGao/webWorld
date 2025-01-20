@@ -3,10 +3,35 @@ import re
 from models.models import *
 
 prefix_string_world = "In summary, the next web page observation is "
+prefix_string_policy = "In summary, the next action I will perform is"
 
 
-def get_proposal():
-    pass
+def get_proposal(
+    prompt: str, 
+    policy_model: str, 
+    temperature: float = 0.7, 
+    max_tokens: int = 4096, 
+    seed: int = 170, 
+    max_length: int = 8192, 
+    truncation: bool = True,
+    do_sample: bool = True, 
+    max_new_tokens: int = 4096
+    ):
+    response = []
+    cnt = 2
+    
+    if policy_model == 'deepseek-chat':
+        while not response and cnt:
+            response = deepseek(prompt, model=policy_model, temperature=temperature, max_tokens=max_tokens)
+            cnt -= 1
+        if not response:
+            print(f'obtain<{policy_model}>response fail!\n')
+            return []
+        else:
+            return response
+    else:
+        print('This method of getting responses is not yet supported!\n')
+        return []
 
 def get_state(
     prompt: str, 
@@ -75,4 +100,24 @@ def washing_response_4_world_model(response):
     
     return response
 
+
+def washing_action_4_policy_model(response: str) -> str:
+    
+    # 如果模型调用没有返回结果，直接返回空字符串
+    if not response:
+        return ''
+    
+    # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
+    if prefix_string_policy not in response:
+        return ''
+    else:
+        # find the first occurence of action
+        pattern = rf"```((.|\n)*?)```"
+        match = re.search(pattern, response)
+        if match:
+            action = match.group(1).strip()
+        else:
+            return ''
+    
+    return response.split(action)[0] + action + "```"
 
