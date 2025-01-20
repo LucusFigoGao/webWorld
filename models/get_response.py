@@ -81,10 +81,12 @@ def washing_response_4_world_model(response):
     
     # 如果模型调用没有返回结果，直接返回空字符串
     if not response:
+        print("模型调用没有返回结果!")
         return ''
         
     # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
     if prefix_string_world not in response:
+        print("前缀不在回复中!")
         return ''
     else:
         response = response.split(prefix_string_world)[-1]
@@ -96,19 +98,21 @@ def washing_response_4_world_model(response):
     if match:
         response = match.group(1)
     else:
+        print("content内容不存在!")
         return ''
     
     return response
-
 
 def washing_action_4_policy_model(response: str) -> str:
     
     # 如果模型调用没有返回结果，直接返回空字符串
     if not response:
+        print("模型调用没有返回结果!")
         return ''
     
     # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
     if prefix_string_policy not in response:
+        print("前缀不在回复中!")
         return ''
     else:
         # find the first occurence of action
@@ -117,6 +121,7 @@ def washing_action_4_policy_model(response: str) -> str:
         if match:
             action = match.group(1).strip()
         else:
+            print("content内容不存在!")
             return ''
     
     return response.split(action)[0] + action + "```"
