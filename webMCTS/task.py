@@ -223,8 +223,9 @@ class MCTS_Task(SearchTask):
                 :: child.state: next state of web page
         """
         prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode="chat")
-        response = get_value(prompt)
-        return response
+        response = get_value(prompt, reward_model=self.reward_method)
+        reason, value = washing_value_4_reward_model(response, low=self.low, high=self.INF)
+        return value
     
     def run(self):
         self.clear_cache()
