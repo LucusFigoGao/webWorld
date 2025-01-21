@@ -208,14 +208,16 @@ def MCTS_search(mcts_task):
         time_start = time.time()
         while time.time() < timeLimit:
             print(f'<开始新搜索轮次，目前总时间:{time.time() - time_start}>\n')
-            flag, node, root = executeRound(root, mcts_task)
+            # flag, node, root = executeRound(root, mcts_task)
+            flag, node = None, None
+            print("="*10, "Hello world!")
             if flag:
                 print('已找到解决方案！\n')
                 return root, node, time.time() - time_start
     else:
         for i in range(mcts_task.iteration_limit):
             print(f'<开始新搜索轮次，目前已完成轮次数:{i}>\n')
-            flag, node, root = executeRound(root, mcts_task)
+            # flag, node, root = executeRound(root, mcts_task)
             if flag:
                 print('已找到解决方案！\n')
                 return root, node, i + 1
