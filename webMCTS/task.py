@@ -101,8 +101,32 @@ class SearchTask(object):
         return message
     
     @staticmethod
-    def get_step_value_prompt_wrap():
-        pass
+    def get_step_value_prompt_wrap(intent: str, trace: str, state: str, mode: str = "chat") -> str:
+        
+        from webMCTS.prompt import osgensis_reward_prompt as prompt_template
+
+        intro = prompt_template["intro"]               # prompt intro
+        inputs = prompt_template["inputs"]             # input template
+        
+        current = inputs.format(
+            indent=intent,                                  # instruction
+            trace=trace,                                    # action trace
+            state=state,                                    # current web state
+        )
+
+        if mode == "chat":
+            message = [
+                {"role": "system", "content": intro}, 
+                {"role": "user", "content": current}
+            ]
+        elif mode == "completion":
+            message = f"{intro}\n\n"
+            message += f"** High-level Instruction **:{intent}\n"
+            message += f"** Action History **:\n"
+            message += f"- Reasoning and Action for Each Step:\n{trace}\n"
+            message += f"The current web page's accessibility tree of the last state:\n{state}\n\n"
+            message += f"** Your Response **:"
+        return message
 
 
 class MCTS_Task(SearchTask):
@@ -198,7 +222,7 @@ class MCTS_Task(SearchTask):
                 :: child.trace: action history till child
                 :: child.state: next state of web page
         """
-        prompt = self.get_step_value_prompt_wrap(trace, state, mode="chat")
+        prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode="chat")
         response = get_value(prompt)
         return response
     
