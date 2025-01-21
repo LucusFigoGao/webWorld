@@ -134,9 +134,9 @@ class MCTS_Task(SearchTask):
         self, 
         data: str,                                  # str, represent the question or task or instruction
         state: str,                                 # str, represent the initial state of web page
-        policy_method,                              # str, default: ['gpt', 'deepseek', 'qwen2.5']
-        reward_method,                              # str, default: ['gpt', 'deepseek', 'qwen2.5']
-        world_method,                               # str, default: ['gpt', 'deepseek', 'qwen2.5']
+        policy_method,                              # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
+        reward_method,                              # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
+        world_method,                               # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
         branch=3,                                   # int, the number of sampling times in extension stage
         roll_policy='greedy',                       # str, rollout policy
         roll_branch=1,                              # int, the number of sampling times in rollout stage
@@ -149,6 +149,7 @@ class MCTS_Task(SearchTask):
         inf=1.0,                                    # float, MCTS UCB avoid stackflow
         low=0,                                      # float
         alpha=0.5,                                  # float, MCTS node value weights
+        chat_mode='chat', 
         
         ) -> None:
         super().__init__(data, policy_method, reward_method, world_method)
@@ -162,6 +163,7 @@ class MCTS_Task(SearchTask):
         self.time_limit = time_limit
         self.iteration_limit = iteration_limit
         
+        self.mode = chat_mode
         self.end_gate = end_gate
         self.reward_model_type = reward_model_type
         
@@ -188,7 +190,7 @@ class MCTS_Task(SearchTask):
                 raise ValueError("Iteration limit must be greater than one")
             self.limit_type = 'iterations'
     
-    def get_next_action(self, trace, state):
+    def get_next_action(self, trace, state, step):
         """
             output:
                 >>> child.action = Policy_model(node.trace, node.state)
@@ -196,9 +198,10 @@ class MCTS_Task(SearchTask):
                 :: node.trace: action history till current node
                 :: node.state: current state of web page
         """
-        prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode="chat")
+        prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode=self.mode)
         response = get_proposal(prompt, self.policy_method)
         response = washing_action_4_policy_model(response)
+        print(f"第<{step}>轮采取的行动是: {response}\n")
         return response
     
     def get_next_state_predict(self, state, action):
@@ -209,9 +212,10 @@ class MCTS_Task(SearchTask):
                 :: node.state: current state of web page
                 :: child.action: current action from node to child
         """
-        prompt = self.get_next_state_predict_prompt_wrap(state, action, mode="chat")
+        prompt = self.get_next_state_predict_prompt_wrap(state, action, mode=self.mode)
         response = get_state(prompt, self.world_method)
         response = washing_response_4_world_model(response)
+        print(f"下一帧网页预测为: {response}\n")
         return response
     
     def get_step_value(self, trace, state):
@@ -222,9 +226,11 @@ class MCTS_Task(SearchTask):
                 :: child.trace: action history till child
                 :: child.state: next state of web page
         """
-        prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode="chat")
+        prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode=self.mode)
         response = get_value(prompt, reward_model=self.reward_method)
-        reason, value = washing_value_4_reward_model(response, low=self.low, high=self.INF)
+        reason, value = washing_value_4_reward_model(response, low=self.low, high=5)
+        print(f"当前行动的得分: {reason}")
+        print(f"当前行动的得分为: {value}\n")
         return value
     
     def run(self):

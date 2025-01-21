@@ -55,7 +55,7 @@ def get_next_step_expand(node: treeNode, mcts_task):
         proposal = ''
         cnt = 3
         while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=node.trace, state=node.state)
+            proposal = mcts_task.get_next_action(trace=node.trace, state=node.state, step=node.depth+1)
             cnt -= 1
         if not proposal:
             continue
@@ -85,17 +85,17 @@ def expand(node: treeNode, mcts_task):
     
     # step two
     node = get_next_step_expand(node, mcts_task)
-    pass
+    return node
 
 # rollout
-def get_next_step_random_rollout(trace, state, mcts_task):
+def get_next_step_random_rollout(trace, state, mcts_task, step):
     # get next action
     action_list = []
     for i in range(mcts_task.roll_branch):
         proposal = ''
         cnt = 3
         while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=trace, state=state)
+            proposal = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
             cnt -= 1
         if not proposal:
             continue
@@ -115,7 +115,7 @@ def randomPolicy(node: treeNode, mcts_task):
     cur_step = node.depth + 1
     
     for i in range(mcts_task.roll_forward_steps):
-        trace, state, value = get_next_step_random_rollout(trace, state, mcts_task)
+        trace, state, value = get_next_step_random_rollout(trace, state, mcts_task, cur_step)
         cur_step += 1
         if value > max_V:
             max_V = value
@@ -123,14 +123,14 @@ def randomPolicy(node: treeNode, mcts_task):
     return max_V
 
 
-def get_next_step_greedy_rollout(trace, state, mcts_task):
+def get_next_step_greedy_rollout(trace, state, mcts_task, step):
     # get next action
     action_list = []
     for i in range(mcts_task.roll_branch):
         proposal = ''
         cnt = 3
         while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=trace, state=state)
+            proposal = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
             cnt -= 1
         if not proposal:
             continue
@@ -153,7 +153,7 @@ def greedyPolicy(node: treeNode, mcts_task):
     cur_step = node.depth + 1
     
     for i in range(mcts_task.roll_forward_steps):
-        new_traces, new_states, new_values = get_next_step_greedy_rollout(trace, state)
+        new_traces, new_states, new_values = get_next_step_greedy_rollout(trace, state, mcts_task, cur_step)
         cur_step += 1
         idx = numpy.argmax(new_values)
         trace, state, value = new_traces[idx], \
@@ -224,4 +224,4 @@ def MCTS_search(mcts_task):
 
 def MCTS(mcts_task):
     root, node, finish = MCTS_search(mcts_task)
-    pass
+    return root, node, finish

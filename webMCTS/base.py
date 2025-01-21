@@ -1,7 +1,7 @@
 
 
 class treeNode(object):
-    def __init__(self, action, parent: None, depth=0) -> None:
+    def __init__(self, action, parent=None, depth=0) -> None:
         """
             构建一个节点需要知道节点的action(Policy model), 以及action之后的下一个状态(World model)
         """
