@@ -150,9 +150,25 @@ class MCTS_Task(SearchTask):
         low=0,                                      # float
         alpha=0.5,                                  # float, MCTS node value weights
         chat_mode='chat', 
+        temperature = 0.7, 
+        max_tokens = 4096, 
+        seed = 42, 
+        max_length = 8192, 
+        truncation = True, 
+        do_sample = True, 
+        max_new_tokens = 4096, 
         
         ) -> None:
         super().__init__(data, policy_method, reward_method, world_method)
+        
+        self.mode = chat_mode
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.seed = seed
+        self.max_length = max_length
+        self.truncation = truncation
+        self.do_sample = do_sample
+        self.max_new_tokens = max_new_tokens
         
         self.init_state = state
         self.branch = branch
@@ -163,7 +179,6 @@ class MCTS_Task(SearchTask):
         self.time_limit = time_limit
         self.iteration_limit = iteration_limit
         
-        self.mode = chat_mode
         self.end_gate = end_gate
         self.reward_model_type = reward_model_type
         
@@ -199,10 +214,17 @@ class MCTS_Task(SearchTask):
                 :: node.state: current state of web page
         """
         prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode=self.mode)
-        response = get_proposal(prompt, self.policy_method)
-        response = washing_action_4_policy_model(response)
+        response = get_proposal(
+            prompt, self.policy_method, 
+            temperature=self.temperature, 
+            max_tokens=self.max_tokens, 
+            seed=self.seed, max_length=self.max_length, 
+            truncation=self.truncation, do_sample=self.do_sample, 
+            max_new_tokens=self.max_new_tokens
+        )
+        response, action = washing_action_4_policy_model(response)
         print(f"第<{step}>轮采取的行动是: {response}\n")
-        return response
+        return response, action
     
     def get_next_state_predict(self, state, action):
         """
@@ -213,7 +235,14 @@ class MCTS_Task(SearchTask):
                 :: child.action: current action from node to child
         """
         prompt = self.get_next_state_predict_prompt_wrap(state, action, mode=self.mode)
-        response = get_state(prompt, self.world_method)
+        response = get_state(
+            prompt, self.world_method, 
+            temperature=self.temperature, 
+            max_tokens=self.max_tokens, 
+            seed=self.seed, max_length=self.max_length, 
+            truncation=self.truncation, do_sample=self.do_sample, 
+            max_new_tokens=self.max_new_tokens
+        )
         response = washing_response_4_world_model(response)
         print(f"下一帧网页预测为: {response}\n")
         return response
@@ -227,7 +256,14 @@ class MCTS_Task(SearchTask):
                 :: child.state: next state of web page
         """
         prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode=self.mode)
-        response = get_value(prompt, reward_model=self.reward_method)
+        response = get_value(
+            prompt, reward_model=self.reward_method, 
+            temperature=self.temperature, 
+            max_tokens=self.max_tokens, 
+            seed=self.seed, max_length=self.max_length, 
+            truncation=self.truncation, do_sample=self.do_sample, 
+            max_new_tokens=self.max_new_tokens
+        )
         reason, value = washing_value_4_reward_model(response, low=self.low, high=5)
         print(f"当前行动的得分: {reason}")
         print(f"当前行动的得分为: {value}\n")

@@ -6,6 +6,7 @@ import random as rd
 
 from webMCTS.base import treeNode
 
+
 # select
 def selectNode(node: treeNode, mcts_task):
     while node.isFullyExpanded:
@@ -37,8 +38,10 @@ def getBestChild(node: treeNode, mcts_task):
         if child_UCB_value >= best_UCB_value:
             best_UCB_value = child_UCB_value
             bestNodes.append(child)
-            
-    return rd.choice(bestNodes)
+    
+    best_node = rd.choice(bestNodes)
+    print(f"[选择阶段]: \n当前节点轨迹:{node.trace}\n当前节点UCB得分:{best_UCB_value}\n")
+    return best_node
 
 
 def isTerminal(node: treeNode, mcts_task):
@@ -49,19 +52,27 @@ def isTerminal(node: treeNode, mcts_task):
 
 # expand
 def get_next_step_expand(node: treeNode, mcts_task):
+    
     action_list = []
+    execute_action_list = []
     
     for i in range(mcts_task.branch):
-        proposal = ''
+        raw_action = ''
         cnt = 3
-        while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=node.trace, state=node.state, step=node.depth+1)
+        while not raw_action and cnt:
+            raw_action, execute_action = mcts_task.get_next_action(trace=node.trace, state=node.state, step=node.depth+1)
             cnt -= 1
-        if not proposal:
+        if not raw_action:
             continue
-        action_list.append(proposal)
+        
+        # 这里加一个从`raw_action`提取到`action`的步骤；
+        # 避免children的key(`raw_action`)不同但是`action`相同的问题
+        if execute_action not in execute_action_list:
+            action_list.append(raw_action)
+            execute_action_list.append(execute_action)
     
     for action in action_list:
+        
         if action not in node.children.keys():
             
             node.append_children(action)
@@ -90,16 +101,19 @@ def expand(node: treeNode, mcts_task):
 # rollout
 def get_next_step_random_rollout(trace, state, mcts_task, step):
     # get next action
-    action_list = []
+    execute_action_list, action_list = [], []
     for i in range(mcts_task.roll_branch):
-        proposal = ''
+        raw_action = ''
         cnt = 3
-        while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
+        while not raw_action and cnt:
+            raw_action, execute_action = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
             cnt -= 1
-        if not proposal:
+        if not raw_action:
             continue
-        action_list.append(proposal)
+        
+        if execute_action not in execute_action_list:
+            action_list.append(raw_action)
+            execute_action_list.append(execute_action)
     
     action = random.choice(action_list)
     new_trace = trace + action
@@ -125,16 +139,20 @@ def randomPolicy(node: treeNode, mcts_task):
 
 def get_next_step_greedy_rollout(trace, state, mcts_task, step):
     # get next action
-    action_list = []
+    execute_action_list, action_list = [], []
     for i in range(mcts_task.roll_branch):
-        proposal = ''
+        raw_action = ''
         cnt = 3
-        while not proposal and cnt:
-            proposal = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
+        while not raw_action and cnt:
+            raw_action, execute_action = mcts_task.get_next_action(trace=trace, state=state, step=f"sim-{step}")
             cnt -= 1
-        if not proposal:
+        if not raw_action:
             continue
-        action_list.append(proposal)
+        
+        if execute_action not in execute_action_list:
+            action_list.append(raw_action)
+            execute_action_list.append(execute_action)
+            
     new_traces = [trace + action for action in action_list]
     
     # get next state predict
@@ -173,6 +191,7 @@ def back_propagate(node: treeNode):
             total_num_visits = sum([child.numVisits for child in node.children.values()])
             if total_num_visits > 0:
                 node.V = sum(child_Vs) / total_num_visits
+                print(f"[回溯阶段]: \n当前节点轨迹:{node.trace}\n当前节点价值:{node.V}\n")
         node = node.parent
 
 
@@ -206,18 +225,17 @@ def MCTS_search(mcts_task):
     if mcts_task.limit_type == 'time':
         timeLimit = time.time() + mcts_task.time_limit / 1000
         time_start = time.time()
+        print(timeLimit)
         while time.time() < timeLimit:
             print(f'<开始新搜索轮次，目前总时间:{time.time() - time_start}>\n')
-            # flag, node, root = executeRound(root, mcts_task)
-            flag, node = None, None
-            print("="*10, "Hello world!")
+            flag, node, root = executeRound(root, mcts_task)
             if flag:
                 print('已找到解决方案！\n')
                 return root, node, time.time() - time_start
     else:
         for i in range(mcts_task.iteration_limit):
             print(f'<开始新搜索轮次，目前已完成轮次数:{i}>\n')
-            # flag, node, root = executeRound(root, mcts_task)
+            flag, node, root = executeRound(root, mcts_task)
             if flag:
                 print('已找到解决方案！\n')
                 return root, node, i + 1

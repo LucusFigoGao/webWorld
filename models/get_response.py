@@ -107,13 +107,6 @@ def washing_response_4_world_model(response: str) -> str:
     if not response:
         print("模型调用没有返回结果!")
         return ''
-        
-    # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
-    if prefix_string_world not in response:
-        print("前缀不在回复中!")
-        return ''
-    else:
-        response = response.split(prefix_string_world)[-1]
     
     # 将```<content>```中的content提取出来
     state_pattern = re.compile(r"```(.*?)```", re.DOTALL)
@@ -125,6 +118,12 @@ def washing_response_4_world_model(response: str) -> str:
         print("content内容不存在!")
         return ''
     
+    # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
+    if prefix_string_world not in response:
+        print("前缀不在回复中!")
+    else:
+        response = response.split(prefix_string_world)[-1]
+    
     return response
 
 def washing_action_4_policy_model(response: str) -> str:
@@ -132,23 +131,23 @@ def washing_action_4_policy_model(response: str) -> str:
     # 如果模型调用没有返回结果，直接返回空字符串
     if not response:
         print("模型调用没有返回结果!")
-        return ''
+        return '', ''
+    
+    # find the first occurence of action
+    pattern = rf"```((.|\n)*?)```"
+    match = re.search(pattern, response)
+    if match:
+        action = match.group(1).strip()
+    else:
+        print("content(action)内容不存在!")
+        return '', ''
     
     # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
     if prefix_string_policy not in response:
         print("前缀不在回复中!")
-        return ''
-    else:
-        # find the first occurence of action
-        pattern = rf"```((.|\n)*?)```"
-        match = re.search(pattern, response)
-        if match:
-            action = match.group(1).strip()
-        else:
-            print("content内容不存在!")
-            return ''
+        return prefix_string_policy + "```" + action + "```", action
     
-    return response.split(action)[0] + action + "```"
+    return response.split(action)[0] + action + "```", action
 
 def washing_value_4_reward_model(response: str, low=0.0, high=5.0) -> str:
     # 如果模型调用没有返回结果，直接返回空字符串
