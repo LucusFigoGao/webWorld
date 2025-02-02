@@ -1,6 +1,7 @@
 import re
 
 from models.models import *
+from utils.text_utils import *
 
 prefix_string_world = "In summary, the next web page observation is "
 prefix_string_policy = "In summary, the next action I will perform is"
@@ -29,6 +30,15 @@ def get_proposal(
             return []
         else:
             return response
+    elif 'qwen' in policy_model:
+        while not response and cnt:
+            response = qwen(prompt, model=policy_model, temperature=temperature, max_tokens=max_tokens)
+            cnt -= 1
+        if not response:
+            print(f'obtain<{policy_model}>response fail!\n')
+            return []
+        else:
+            return response
     else:
         print('This method of getting responses is not yet supported!\n')
         return []
@@ -50,6 +60,16 @@ def get_state(
     if world_method == 'deepseek-chat':
         while not response and cnt:
             response = deepseek(prompt, model=world_method, temperature=temperature, max_tokens=max_tokens)
+            cnt -= 1
+        if not response:
+            print(f'obtain<{world_method}>response fail!\n')
+            return []
+        else:
+            return response
+    
+    elif 'qwen' in world_method:
+        while not response and cnt:
+            response = qwen(prompt, model=world_method, temperature=temperature, max_tokens=max_tokens)
             cnt -= 1
         if not response:
             print(f'obtain<{world_method}>response fail!\n')
@@ -97,6 +117,15 @@ def get_value(
             return []
         else:
             return response
+    elif 'qwen' in reward_model:
+        while not response and cnt:
+            response = qwen(prompt, model=reward_model, temperature=temperature, max_tokens=max_tokens)
+            cnt -= 1
+        if not response:
+            print(f'obtain<{reward_model}>response fail!\n')
+            return []
+        else:
+            return response
     else:
         print('This method of getting responses is not yet supported!\n')
         return []
@@ -126,7 +155,7 @@ def washing_response_4_world_model(response: str) -> str:
     
     return response
 
-def washing_action_4_policy_model(response: str) -> str:
+def washing_action_4_policy_model(response: str, state: str) -> str:
     
     # 如果模型调用没有返回结果，直接返回空字符串
     if not response:
@@ -141,6 +170,9 @@ def washing_action_4_policy_model(response: str) -> str:
     else:
         print("content(action)内容不存在!")
         return '', ''
+    
+    # 这里从state中将[id]的具体内容补全
+    action = action_completion(action, state)
     
     # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
     if prefix_string_policy not in response:
@@ -165,7 +197,8 @@ def washing_value_4_reward_model(response: str, low=0.0, high=5.0) -> str:
             reason_content = reason_match.group(1).strip()
         else:
             print("无理由返回!")
-            return '', low
+            reason_content = ""
+            # return '', low
         
         score_match = re.search(r"Score:(.*?)$", response)
         if score_match:

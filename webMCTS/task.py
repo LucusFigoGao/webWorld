@@ -1,5 +1,6 @@
-from models.get_response import *
 from webMCTS.mcts import MCTS
+from models.get_response import *
+from utils.search_utils import *
 
 
 class SearchTask(object):
@@ -221,8 +222,8 @@ class MCTS_Task(SearchTask):
             seed=self.seed, max_length=self.max_length, 
             truncation=self.truncation, do_sample=self.do_sample, 
             max_new_tokens=self.max_new_tokens
-        )
-        response, action = washing_action_4_policy_model(response)
+        )        
+        response, action = washing_action_4_policy_model(response, state)        
         print(f"第<{step}>轮采取的行动是: {response}\n")
         return response, action
     
@@ -272,4 +273,14 @@ class MCTS_Task(SearchTask):
     def run(self):
         self.clear_cache()
         self.set_limit_type()
-        node, finish, root = MCTS(self)     # input mcts_task
+        root, node, finish = MCTS(self)     # input mcts_task
+        
+        if finish is not None:
+            print(f'已找到最终解!\nSolution:{node.trace}\n')
+            return root, node, finish
+
+        else:
+            best_node, best_V = root.getBestV()
+            print(f'在规定时间/轮次内未找到满足要求价值的解答，采用最高价值价值解答代替。\nSolution:{best_node.trace}\n')
+            return root, best_node, -1
+        

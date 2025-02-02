@@ -1,3 +1,4 @@
+import re
 import math
 import time
 import numpy
@@ -93,7 +94,7 @@ def expand(node: treeNode, mcts_task):
         :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
     """
     # step1
-    
+
     # step two
     node = get_next_step_expand(node, mcts_task)
     return node
@@ -133,6 +134,14 @@ def randomPolicy(node: treeNode, mcts_task):
         cur_step += 1
         if value > max_V:
             max_V = value
+        
+        # 如果模拟过程遇到了stop, 那么退出模拟过程直接返回max_V
+        stop_pattern = r"stop \[(.*?)\]"
+        match = re.search(stop_pattern, trace)
+        if match:
+            extracted_content = match.group(1)
+            print(extracted_content)
+            break
         
     return max_V
 
@@ -179,6 +188,14 @@ def greedyPolicy(node: treeNode, mcts_task):
                                              new_values[idx]
         if value > max_V:
             max_V = value
+        
+        # 如果模拟过程遇到了stop, 那么退出模拟过程直接返回max_V
+        stop_pattern = r"stop \[(.*?)\]"
+        match = re.search(stop_pattern, trace)
+        if match:
+            extracted_content = match.group(1)
+            print(extracted_content)
+            break
     
     return max_V
         

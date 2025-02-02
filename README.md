@@ -74,9 +74,11 @@ self.isTerminal = False             # value acceptable, whether task finished
 
 ### expand
 * 2025.01.09 扩展阶段暂时不考虑加reflection
+* 2025.02.02 完善，将action中每个[id]的含义，从state中摘要出并补充到action后面
 
 ### rollout
 * 2025.01.18 完成随机/贪婪模拟阶段，同样暂时不考虑加reflection
+* 2025.02.02 完善，如果在模拟的过程中触发了stop，那么中断模拟过程，将最大value返回
 
 ### back propagation
 * 2025.01.18 完成回溯部分，保留了和ReST-MCTS*相同的回溯策略
@@ -85,6 +87,7 @@ self.isTerminal = False             # value acceptable, whether task finished
 * 2025.01.18 完成API请求prompt收集，实现策略、世界模型的模版封装过程；奖励模型的设计已经同步到军洪那边；
 * 2025.01.20 完成世界模型部分，包括提示模版包装、API请求、回复清洗流程；
 * 2025.01.20 完成策略模型部分，包括提示模版包装、API请求、回复清洗流程；
+* 2025.01.31 完成Qwen-plus的API，DeepSeek最近请求总是超时；
 
 ## ToDo List
 ### 2025.01.18
@@ -106,3 +109,7 @@ self.isTerminal = False             # value acceptable, whether task finished
 ### 2025.01.21
 * 初步开始尝试在云服务器训练world model
     * 目前在Qwen-2.5-3b的模型上进行6.4k数据的微调
+
+### 2025.02.02
+* 对整体的MCTS进行优化，避免重复/无意义的推理过程
+* 优化提示模版

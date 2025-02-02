@@ -53,4 +53,15 @@ class treeNode(object):
     def update_state(self, state):
         self.state = state
     
+    def getBestV(self):  # Gets the subtree maximum value node
+        if not self.isFullyExpanded:
+            return self, self.V
+        max_V = self.V
+        max_node = self
+        for child in self.children.values():
+            subNode, subValue = child.getBestV()
+            if subValue >= max_V:
+                max_V = subValue
+                max_node = subNode
+        return max_node, max_V
     
