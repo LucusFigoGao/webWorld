@@ -7,7 +7,6 @@ import random as rd
 
 from webMCTS.base import treeNode
 
-
 # select
 def selectNode(node: treeNode, mcts_task):
     while node.isFullyExpanded:
@@ -41,7 +40,7 @@ def getBestChild(node: treeNode, mcts_task):
             bestNodes.append(child)
     
     best_node = rd.choice(bestNodes)
-    print(f"[选择阶段]: \n当前节点轨迹:{node.trace}\n当前节点UCB得分:{best_UCB_value}\n")
+    print(f"当前节点行动:{node.action}\n当前节点UCB得分:{best_UCB_value}\n")
     return best_node
 
 
@@ -72,6 +71,10 @@ def get_next_step_expand(node: treeNode, mcts_task):
             action_list.append(raw_action)
             execute_action_list.append(execute_action)
     
+    if not action_list:
+        node.update_reflection('<end>')
+        return node
+    
     for action in action_list:
         
         if action not in node.children.keys():
@@ -84,6 +87,13 @@ def get_next_step_expand(node: treeNode, mcts_task):
             
             child.update_value(mcts_task.get_step_value(child.trace, child.state))
             
+            # if mcts_task.use_reflection == 'common':
+            #     contents = mcts_task.get_reflection(child.trace)
+            # else:   # simple
+            #     contents = mcts_task.get_simple_reflection(child.trace)
+            # if contents is not None:
+            #     child.update_reflection("<end>")
+                    
     node.isFullyExpanded = True
     
     return node
@@ -94,6 +104,16 @@ def expand(node: treeNode, mcts_task):
         :: 这里分两步，预留出reflection的接口，用于后续加reflection；下一步是`get_next_step_expand`
     """
     # step1
+    if not node.reflection:
+        if mcts_task.use_reflection == 'common':
+            contents = mcts_task.get_reflection(node.trace)
+        else:  # simple
+            contents = mcts_task.get_simple_reflection(node.trace)
+        if contents is not None:
+            node.update_reflection("<end>")
+    
+    if node.reflection == '<end>':
+        return node
 
     # step two
     node = get_next_step_expand(node, mcts_task)
@@ -129,20 +149,33 @@ def randomPolicy(node: treeNode, mcts_task):
     state = node.state
     cur_step = node.depth + 1
     
+    if node.reflection is None:
+        if mcts_task.use_reflection == 'common':
+            contents = mcts_task.get_reflection(trace)
+        else:
+            contents = mcts_task.get_simple_reflection(trace)
+        if contents is not None:
+            node.update_reflection("<end>")
+
+    if node.reflection == '<end>':
+        print('This step has been resolved and does not require simulation.\n')
+        return node.V
+    
     for i in range(mcts_task.roll_forward_steps):
         trace, state, value = get_next_step_random_rollout(trace, state, mcts_task, cur_step)
         cur_step += 1
-        if value > max_V:
-            max_V = value
         
-        # 如果模拟过程遇到了stop, 那么退出模拟过程直接返回max_V
-        stop_pattern = r"stop \[(.*?)\]"
-        match = re.search(stop_pattern, trace)
-        if match:
-            extracted_content = match.group(1)
-            print(extracted_content)
+        # 如果模拟时候已经存在了stop，那么终止模拟过程
+        if mcts_task.use_reflection == 'common':
+            contents = mcts_task.get_reflection(trace)
+        else:  # simple
+            contents = mcts_task.get_simple_reflection(trace)
+        if contents is not None:
             break
         
+        if value > max_V:
+            max_V = value
+              
     return max_V
 
 
@@ -179,6 +212,18 @@ def greedyPolicy(node: treeNode, mcts_task):
     state = node.state
     cur_step = node.depth + 1
     
+    if node.reflection is None:
+        if mcts_task.use_reflection == 'common':
+            contents = mcts_task.get_reflection(trace)
+        else:
+            contents = mcts_task.get_simple_reflection(trace)
+        if contents is not None:
+            node.update_reflection("<end>")
+
+    if node.reflection == '<end>':
+        print('This step has been resolved and does not require simulation.\n')
+        return node.V
+    
     for i in range(mcts_task.roll_forward_steps):
         new_traces, new_states, new_values = get_next_step_greedy_rollout(trace, state, mcts_task, cur_step)
         cur_step += 1
@@ -186,17 +231,18 @@ def greedyPolicy(node: treeNode, mcts_task):
         trace, state, value = new_traces[idx], \
                                              new_states[idx], \
                                              new_values[idx]
+        
+        # 如果模拟时候已经存在了stop，那么终止模拟过程
+        if mcts_task.use_reflection == 'common':
+            contents = mcts_task.get_reflection(trace)
+        else:  # simple
+            contents = mcts_task.get_simple_reflection(trace)
+        if contents is not None:
+            break
+
         if value > max_V:
             max_V = value
         
-        # 如果模拟过程遇到了stop, 那么退出模拟过程直接返回max_V
-        stop_pattern = r"stop \[(.*?)\]"
-        match = re.search(stop_pattern, trace)
-        if match:
-            extracted_content = match.group(1)
-            print(extracted_content)
-            break
-    
     return max_V
         
 # back propagate
@@ -221,13 +267,19 @@ def executeRound(root: treeNode, mcts_task):
         return True, node, root
     
     print('-' * 40, '\n扩充阶段\n')
-    node = expand(node, mcts_task)
+    if node.reflection == '<end>':
+        print('跳过扩充阶段。\n')
+    else:
+        node = expand(node, mcts_task)
     
     print('-' * 40, '\n模拟搜索阶段\n')
-    roll_node = getBestChild(node, mcts_task)
-    best_V = greedyPolicy(roll_node, mcts_task) if mcts_task.roll_policy == 'greedy' else randomPolicy(roll_node, mcts_task)
-    roll_node.V = roll_node.V * (1 - mcts_task.alpha) + best_V * mcts_task.alpha
-    roll_node.numVisits += 1
+    if node.reflection == '<end>':
+        print('跳过模拟阶段。\n')
+    else:
+        roll_node = getBestChild(node, mcts_task)
+        best_V = greedyPolicy(roll_node, mcts_task) if mcts_task.roll_policy == 'greedy' else randomPolicy(roll_node, mcts_task)
+        roll_node.V = roll_node.V * (1 - mcts_task.alpha) + best_V * mcts_task.alpha
+        roll_node.numVisits += 1
     
     print('-' * 40, '\n反向传播阶段\n')
     back_propagate(node)
@@ -261,4 +313,13 @@ def MCTS_search(mcts_task):
 
 def MCTS(mcts_task):
     root, node, finish = MCTS_search(mcts_task)
-    return root, node, finish
+
+    if finish is not None:
+        print(f'已找到最终解!\nSolution:{node.trace}\n')
+        return root, node, finish
+
+    else:
+        best_node, best_V = root.getBestV()
+        print(f'在规定时间/轮次内未找到满足要求价值的解答，采用最高价值价值解答代替。\nSolution:{best_node.trace}\n')
+        return root, best_node, -1
+        

@@ -36,8 +36,9 @@ def action_completion(action_str, state):
         element_id = match.group(1)
         element_id = '['+element_id+']'
         if element_id not in state:
-            raise KeyError(f"Invalid click action ID in {action_str}")
-        return action_str + f", where {element_id} is '{nodes[element_id]['text']}'" 
+            print(f"Invalid click action ID in {action_str}")
+            return None
+        return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
     
     if "hover " in action_str:
         match = re.search(r"hover ?\[(\d+)\]", action_str)
@@ -46,15 +47,17 @@ def action_completion(action_str, state):
         element_id = match.group(1)
         element_id = '['+element_id+']'
         if element_id not in state:
-            raise KeyError(f"Invalid hover action ID in {action_str}")
-        return action_str + f", where {element_id} is '{nodes[element_id]['text']}'" 
+            print(f"Invalid hover action ID in {action_str}")
+            return None
+        return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
     
     if "type " in action_str:
         match = re.search(
             r"type ?\[(\d+)\] ?\[(.+)\] ?\[(\d+)\]", action_str
         )
         if not match:
-            raise ActionParsingError(f"Invalid type action {action_str}")
+            print(f"Invalid type action {action_str}")
+            return None
         element_id, text, enter_flag = (
             match.group(1),
             match.group(2),
@@ -63,7 +66,7 @@ def action_completion(action_str, state):
         element_id = '['+element_id+']'
         if enter_flag == "1":
             text += "\n"
-        return action_str + f", where {element_id} is '{nodes[element_id]['text']}'" 
+        return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
     
     #! un-finished
     if "press " in action_str:
@@ -112,5 +115,5 @@ def action_completion(action_str, state):
             answer = ""
         else:
             answer = match.group(1)
-        return action_str
+        return "```"+action_str+"```"
     

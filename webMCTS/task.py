@@ -145,6 +145,7 @@ class MCTS_Task(SearchTask):
         time_limit=None,                            # int, time searching limit
         iteration_limit=None,                       # int, iteration searching limit
         reward_model_type='vm',                     # str, reward model type (outcome reward)
+        use_reflection='common',                    # str, reflection type (common, simple)
         end_gate=0.9,                               # int, threshold of task finished reward
         exploration_constant=0.7,                   # float, MCTS UCB epsilon
         inf=1.0,                                    # float, MCTS UCB avoid stackflow
@@ -181,6 +182,7 @@ class MCTS_Task(SearchTask):
         self.iteration_limit = iteration_limit
         
         self.end_gate = end_gate
+        self.use_reflection = use_reflection
         self.reward_model_type = reward_model_type
         
         self.low = low
@@ -222,7 +224,12 @@ class MCTS_Task(SearchTask):
             seed=self.seed, max_length=self.max_length, 
             truncation=self.truncation, do_sample=self.do_sample, 
             max_new_tokens=self.max_new_tokens
-        )        
+        )    
+        
+        # print("="*75, "行动结果", "="*75)
+        # print(response)
+        # print("="*75, "行动结果", "="*75)
+            
         response, action = washing_action_4_policy_model(response, state)        
         print(f"第<{step}>轮采取的行动是: {response}\n")
         return response, action
@@ -244,6 +251,11 @@ class MCTS_Task(SearchTask):
             truncation=self.truncation, do_sample=self.do_sample, 
             max_new_tokens=self.max_new_tokens
         )
+        
+        # print("="*75, "世界模型结果", "="*75)
+        # print(response)
+        # print("="*75, "世界模型结果", "="*75)
+        
         response = washing_response_4_world_model(response)
         print(f"下一帧网页预测为: {response}\n")
         return response
@@ -265,22 +277,32 @@ class MCTS_Task(SearchTask):
             truncation=self.truncation, do_sample=self.do_sample, 
             max_new_tokens=self.max_new_tokens
         )
+        
+        # print("="*75, "奖励结果", "="*75)
+        # print(response)
+        # print("="*75, "奖励结果", "="*75)
+        
+        
         reason, value = washing_value_4_reward_model(response, low=self.low, high=5)
         print(f"当前行动的得分: {reason}")
         print(f"当前行动的得分为: {value}\n")
         return value
     
+    def get_reflection(self, trace):
+        # 如果模拟过程遇到了stop, 那么退出模拟过程直接返回max_V
+        stop_pattern = r"stop \[(.*?)\]"
+        match = re.search(stop_pattern, trace)
+        if match:
+            extracted_content = match.group(1)
+            return extracted_content
+        else:
+            return None
+    
+    def get_simple_reflection(self, trace):
+        pass
+    
     def run(self):
         self.clear_cache()
         self.set_limit_type()
         root, node, finish = MCTS(self)     # input mcts_task
-        
-        if finish is not None:
-            print(f'已找到最终解!\nSolution:{node.trace}\n')
-            return root, node, finish
-
-        else:
-            best_node, best_V = root.getBestV()
-            print(f'在规定时间/轮次内未找到满足要求价值的解答，采用最高价值价值解答代替。\nSolution:{best_node.trace}\n')
-            return root, best_node, -1
-        
+        return root, node, finish
