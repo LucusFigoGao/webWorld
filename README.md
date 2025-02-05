@@ -54,7 +54,7 @@ self.isTerminal = False             # value acceptable, whether task finished
     while K, do:
     * function: get_next_step_rollout(node, mcts_task): list[string]                    // 根据当前节点进行扩展(广度为B)(**涉及调用3*KB次反思LLM**)
 
-### API请求prompt收集(2015.01.18)
+### API请求prompt收集(2025.01.18)
 * function: mcts_task.get_next_action(trace, state)
     * [TREE SEARCH FOR LANGUAGE MODEL AGENTS](./prompt.md#action-navigation)
     * [WebArena](prompt.md#p_cot_id_actree_2s_no_na)
@@ -74,10 +74,42 @@ self.isTerminal = False             # value acceptable, whether task finished
 
 ### expand
 * 2025.01.09 扩展阶段暂时不考虑加reflection
+* 2025.02.02 完善，将action中每个[id]的含义，从state中摘要出并补充到action后面
 
 ### rollout
 * 2025.01.18 完成随机/贪婪模拟阶段，同样暂时不考虑加reflection
+* 2025.02.02 完善，如果在模拟的过程中触发了stop，那么中断模拟过程，将最大value返回
 
 ### back propagation
 * 2025.01.18 完成回溯部分，保留了和ReST-MCTS*相同的回溯策略
 
+### API请求
+* 2025.01.18 完成API请求prompt收集，实现策略、世界模型的模版封装过程；奖励模型的设计已经同步到军洪那边；
+* 2025.01.20 完成世界模型部分，包括提示模版包装、API请求、回复清洗流程；
+* 2025.01.20 完成策略模型部分，包括提示模版包装、API请求、回复清洗流程；
+* 2025.01.31 完成Qwen-plus的API，DeepSeek最近请求总是超时；
+
+## ToDo List
+### 2025.01.18
+* 世界模型的预测评估，包括1、设计next state预测准确率设计，2、在API和SFT的模型上分别测试；
+* 在网页上测试奖励模型、策略模型包装模版的性能（暂时考虑deepseek）
+* 云服务器上训练世界模型
+
+## Done List
+### 2025.01.20
+* 完成对基于prompt的Deepseek世界模型的状态预测评估
+    * 现象一：硬通过率不高——指令遵循能力还需要提升
+        * 目前的清洗手段很强硬，只要不符合基本格式，都会被要求重新生成；
+    * 现象二：Deepseek-v3可以以prompt的方式用作世界模型；
+        * 出现了100%正确预测的案例（包含顺序是乱的情况）
+    * 现象三：多样性不足
+        * 发现匹配为0的状态，在长度上少于正确的预测状态
+        * 但是对于MCTS的影响未必是坏事
+
+### 2025.01.21
+* 初步开始尝试在云服务器训练world model
+    * 目前在Qwen-2.5-3b的模型上进行6.4k数据的微调
+
+### 2025.02.02
+* 对整体的MCTS进行优化，避免重复/无意义的推理过程
+* 优化提示模版
