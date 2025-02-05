@@ -10,6 +10,7 @@ from webMCTS.base import treeNode
 # select
 def selectNode(node: treeNode, mcts_task):
     while node.isFullyExpanded:
+        print(">> 当前节点未完全展开")
         node = getBestChild(node, mcts_task)
     if isTerminal(node, mcts_task):
         node.isTerminal = True
@@ -30,22 +31,23 @@ def getBestChild(node: treeNode, mcts_task):
     bestNodes: list = []
     
     for child in node.children.values():
-        child: treeNode
-        child_UCB_value = child.V + mcts_task.exploration_constant * math.sqrt(
-            2 * math.log(node.numVisits) / child.numVisits
-        ) if child.numVisits > 0 else child.V + mcts_task.INF
-        
-        if child_UCB_value >= best_UCB_value:
-            best_UCB_value = child_UCB_value
+        nodeValue = child.V + mcts_task.exploration_constant * math.sqrt(
+            2 * math.log(node.numVisits) / child.numVisits) if child.numVisits > 0 else child.V + mcts_task.INF
+        if nodeValue > best_UCB_value:
+            best_UCB_value = nodeValue
+            bestNodes = [child]
+        elif nodeValue == best_UCB_value:
             bestNodes.append(child)
-    
+
     best_node = rd.choice(bestNodes)
-    print(f"当前节点行动:{node.action}\n当前节点UCB得分:{best_UCB_value}\n")
+    print(f"[getBestChild]: 当前节点行动:{best_node.action}\n当前节点UCB得分:{best_UCB_value}\n")
     return best_node
 
 
 def isTerminal(node: treeNode, mcts_task):
     if mcts_task.reward_model_type == 'vm':
+        if node.reflection == '<end>':
+            return True
         return node.V >= mcts_task.end_gate
     else:
         return False
@@ -86,13 +88,6 @@ def get_next_step_expand(node: treeNode, mcts_task):
             child.update_state(mcts_task.get_next_state_predict(state=node.state, action=action))
             
             child.update_value(mcts_task.get_step_value(child.trace, child.state))
-            
-            # if mcts_task.use_reflection == 'common':
-            #     contents = mcts_task.get_reflection(child.trace)
-            # else:   # simple
-            #     contents = mcts_task.get_simple_reflection(child.trace)
-            # if contents is not None:
-            #     child.update_reflection("<end>")
                     
     node.isFullyExpanded = True
     
@@ -149,16 +144,19 @@ def randomPolicy(node: treeNode, mcts_task):
     state = node.state
     cur_step = node.depth + 1
     
-    if node.reflection is None:
-        if mcts_task.use_reflection == 'common':
-            contents = mcts_task.get_reflection(trace)
-        else:
-            contents = mcts_task.get_simple_reflection(trace)
-        if contents is not None:
-            node.update_reflection("<end>")
+    if mcts_task.use_reflection == 'common':
+        contents = mcts_task.get_reflection(trace)
+    else:
+        contents = mcts_task.get_simple_reflection(trace)
+    
+    if contents is not None:
+        node.update_reflection("<end>")
 
     if node.reflection == '<end>':
         print('This step has been resolved and does not require simulation.\n')
+        return node.V
+    
+    if mcts_task.roll_forward_steps == 0:
         return node.V
     
     for i in range(mcts_task.roll_forward_steps):
@@ -212,16 +210,19 @@ def greedyPolicy(node: treeNode, mcts_task):
     state = node.state
     cur_step = node.depth + 1
     
-    if node.reflection is None:
-        if mcts_task.use_reflection == 'common':
-            contents = mcts_task.get_reflection(trace)
-        else:
-            contents = mcts_task.get_simple_reflection(trace)
-        if contents is not None:
-            node.update_reflection("<end>")
+    if mcts_task.use_reflection == 'common':
+        contents = mcts_task.get_reflection(trace)
+    else:
+        contents = mcts_task.get_simple_reflection(trace)
+    
+    if contents is not None:
+        node.update_reflection("<end>")
 
     if node.reflection == '<end>':
         print('This step has been resolved and does not require simulation.\n')
+        return node.V
+    
+    if mcts_task.roll_forward_steps == 0:
         return node.V
     
     for i in range(mcts_task.roll_forward_steps):

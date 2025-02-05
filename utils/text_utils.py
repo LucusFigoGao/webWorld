@@ -78,10 +78,20 @@ def action_completion(action_str, state):
     #! un-finished
     if "scroll " in action_str:
         # up or down
+        match = re.search(r"scroll ?\[?direction=(up|down)\]?", action_str)
+        if not match:
+            print(f"Invalid scroll action {action_str}")
+        else:
+            direction = match.group(1)
+            return "scroll "+direction
+        
         match = re.search(r"scroll ?\[?(up|down)\]?", action_str)
         if not match:
-            raise ActionParsingError(f"Invalid scroll action {action_str}")
-        direction = match.group(1)
+            print(f"Invalid scroll action {action_str}")
+            return action_str
+        else:
+            direction = match.group(1)
+            return "scroll "+direction
         
     if "goto " in action_str:
         match = re.search(r"goto ?\[(.+)\]", action_str)
