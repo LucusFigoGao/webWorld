@@ -138,6 +138,9 @@ class MCTS_Task(SearchTask):
         policy_method,                              # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
         reward_method,                              # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
         world_method,                               # str, default: ['gpt', 'deepseek-chat', 'qwen2.5']
+        policy_temperature=0.8,                     # float, temperature for policy method
+        reward_temperature=0.2,                     # float, temperature for reward method
+        world_temperature=0.8,                      # float, temperature for world method
         branch=3,                                   # int, the number of sampling times in extension stage
         roll_policy='greedy',                       # str, rollout policy
         roll_branch=1,                              # int, the number of sampling times in rollout stage
@@ -152,7 +155,6 @@ class MCTS_Task(SearchTask):
         low=0,                                      # float
         alpha=0.5,                                  # float, MCTS node value weights
         chat_mode='chat', 
-        temperature = 0.7, 
         max_tokens = 4096, 
         seed = 42, 
         max_length = 8192, 
@@ -164,7 +166,6 @@ class MCTS_Task(SearchTask):
         super().__init__(data, policy_method, reward_method, world_method)
         
         self.mode = chat_mode
-        self.temperature = temperature
         self.max_tokens = max_tokens
         self.seed = seed
         self.max_length = max_length
@@ -189,6 +190,10 @@ class MCTS_Task(SearchTask):
         self.INF = inf
         self.alpha = alpha
         self.exploration_constant = exploration_constant
+        
+        self.policy_temperature = policy_temperature
+        self.reward_temperature = reward_temperature
+        self.world_temperature = world_temperature
         
     def clear_cache(self):
         self.value_cache = {}
@@ -219,7 +224,7 @@ class MCTS_Task(SearchTask):
         prompt = self.get_next_action_prompt_wrap(self.question, trace, state, mode=self.mode)
         response = get_proposal(
             prompt, self.policy_method, 
-            temperature=self.temperature, 
+            temperature=self.policy_temperature, 
             max_tokens=self.max_tokens, 
             seed=self.seed, max_length=self.max_length, 
             truncation=self.truncation, do_sample=self.do_sample, 
@@ -245,7 +250,7 @@ class MCTS_Task(SearchTask):
         prompt = self.get_next_state_predict_prompt_wrap(state, action, mode=self.mode)
         response = get_state(
             prompt, self.world_method, 
-            temperature=self.temperature, 
+            temperature=self.world_temperature, 
             max_tokens=self.max_tokens, 
             seed=self.seed, max_length=self.max_length, 
             truncation=self.truncation, do_sample=self.do_sample, 
@@ -271,7 +276,7 @@ class MCTS_Task(SearchTask):
         prompt = self.get_step_value_prompt_wrap(self.question, trace, state, mode=self.mode)
         response = get_value(
             prompt, reward_model=self.reward_method, 
-            temperature=self.temperature, 
+            temperature=self.reward_temperature, 
             max_tokens=self.max_tokens, 
             seed=self.seed, max_length=self.max_length, 
             truncation=self.truncation, do_sample=self.do_sample, 
@@ -281,8 +286,7 @@ class MCTS_Task(SearchTask):
         # print("="*75, "奖励结果", "="*75)
         # print(response)
         # print("="*75, "奖励结果", "="*75)
-        
-        
+
         reason, value = washing_value_4_reward_model(response, low=self.low, high=5)
         print(f"当前行动的得分: {reason}")
         print(f"当前行动的得分为: {value}\n")

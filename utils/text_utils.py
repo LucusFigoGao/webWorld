@@ -32,10 +32,11 @@ def action_completion(action_str, state):
     if "click " in action_str:
         match = re.search(r"click ?\[(\d+)\]", action_str)
         if not match:
-            raise ActionParsingError(f"Invalid click action {action_str}")
+            print(f"Invalid click action {action_str}")
+            return None
         element_id = match.group(1)
         element_id = '['+element_id+']'
-        if element_id not in state:
+        if element_id not in nodes.keys():
             print(f"Invalid click action ID in {action_str}")
             return None
         return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
@@ -43,10 +44,11 @@ def action_completion(action_str, state):
     if "hover " in action_str:
         match = re.search(r"hover ?\[(\d+)\]", action_str)
         if not match:
-            raise ActionParsingError(f"Invalid hover action {action_str}")
+            print(f"Invalid hover action {action_str}")
+            return None
         element_id = match.group(1)
         element_id = '['+element_id+']'
-        if element_id not in state:
+        if element_id not in nodes.keys():
             print(f"Invalid hover action ID in {action_str}")
             return None
         return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
@@ -66,14 +68,20 @@ def action_completion(action_str, state):
         element_id = '['+element_id+']'
         if enter_flag == "1":
             text += "\n"
+        if element_id not in state:
+            print(f"Invalid type action ID in {action_str}")
+            return None
         return "```"+action_str+"```" + f", where {element_id} is '{nodes[element_id]['text']}'" 
     
     #! un-finished
     if "press " in action_str:
         match = re.search(r"press ?\[(.+)\]", action_str)
         if not match:
-            raise ActionParsingError(f"Invalid press action {action_str}")
-        key_comb = match.group(1)
+            print(f"Invalid press action {action_str}")
+        else:
+            key_comb = match.group(1)
+            return "press " + key_comb
+        return action_str
     
     #! un-finished
     if "scroll " in action_str:
@@ -83,7 +91,7 @@ def action_completion(action_str, state):
             print(f"Invalid scroll action {action_str}")
         else:
             direction = match.group(1)
-            return "scroll "+direction
+            return "scroll " + direction
         
         match = re.search(r"scroll ?\[?(up|down)\]?", action_str)
         if not match:
@@ -91,33 +99,38 @@ def action_completion(action_str, state):
             return action_str
         else:
             direction = match.group(1)
-            return "scroll "+direction
+            return "scroll " + direction
         
     if "goto " in action_str:
         match = re.search(r"goto ?\[(.+)\]", action_str)
         if not match:
-            raise ActionParsingError(f"Invalid goto action {action_str}")
-        url = match.group(1)
+            print(f"Invalid goto action {action_str}")
+        else:
+            url = match.group(1)
+            return "goto "+ url
+        return action_str
         
     if "new_tab " in action_str:
-        pass
+        return action_str
     
     if "go_back " in action_str:
-        pass
+        return action_str
     
     if "go_forward " in action_str:
-        pass
+        return action_str
     
     if "tab_focus " in action_str:
         match = re.search(r"tab_focus ?\[(\d+)\]", action_str)
         if not match:
-            raise ActionParsingError(
+            print(
                 f"Invalid tab_focus action {action_str}"
             )
+            return None
         page_number = int(match.group(1))
+        return action_str
     
     if "close_tab " in action_str:
-        pass
+        return action_str
     
     if "stop " in action_str:  # stop answer
         match = re.search(r"stop ?\[(.+)\]", action_str)

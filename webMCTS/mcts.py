@@ -6,6 +6,7 @@ import random
 import random as rd
 
 from webMCTS.base import treeNode
+from utils.search_utils import get_all_leaf_nodes
 
 # select
 def selectNode(node: treeNode, mcts_task):
@@ -31,8 +32,8 @@ def getBestChild(node: treeNode, mcts_task):
     bestNodes: list = []
     
     for child in node.children.values():
-        nodeValue = child.V + mcts_task.exploration_constant * math.sqrt(
-            2 * math.log(node.numVisits) / child.numVisits) if child.numVisits > 0 else child.V + mcts_task.INF
+        nodeValue = child.V / 5 + mcts_task.exploration_constant * math.sqrt(
+            2 * math.log(node.numVisits) / child.numVisits) if child.numVisits > 0 else child.V / 5 + mcts_task.INF
         if nodeValue > best_UCB_value:
             best_UCB_value = nodeValue
             bestNodes = [child]
@@ -40,14 +41,12 @@ def getBestChild(node: treeNode, mcts_task):
             bestNodes.append(child)
 
     best_node = rd.choice(bestNodes)
-    print(f"[getBestChild]: 当前节点行动:{best_node.action}\n当前节点UCB得分:{best_UCB_value}\n")
+    # print(f"[getBestChild]: 当前节点行动:{best_node.action}\n当前节点UCB得分:{best_UCB_value}\n")
     return best_node
 
 
 def isTerminal(node: treeNode, mcts_task):
     if mcts_task.reward_model_type == 'vm':
-        if node.reflection == '<end>':
-            return True
         return node.V >= mcts_task.end_gate
     else:
         return False
@@ -245,7 +244,8 @@ def greedyPolicy(node: treeNode, mcts_task):
             max_V = value
         
     return max_V
-        
+       
+ 
 # back propagate
 def back_propagate(node: treeNode):
     while node is not None:
@@ -284,6 +284,19 @@ def executeRound(root: treeNode, mcts_task):
     
     print('-' * 40, '\n反向传播阶段\n')
     back_propagate(node)
+    
+    #! 判断是否需要提前停止
+    leaves = get_all_leaf_nodes(root)
+    stop_sign_leaf_count = 0
+    for leaf in leaves:
+        if re.search(r"stop \[(.*?)\]", leaf.action):
+            stop_sign_leaf_count += 1
+
+    if stop_sign_leaf_count == len(leaves):
+        print("All leaves have stop sign.")
+        return True, node, root
+    else:
+        print(f'=> 早停节点数量:{stop_sign_leaf_count}/总叶子节点数量:{len(leaves)}\n')
     
     return False, node, root
     

@@ -10,7 +10,7 @@ prefix_string_policy = "In summary, the next action I will perform is"
 def get_proposal(
     prompt: str, 
     policy_model: str, 
-    temperature: float = 0.7, 
+    temperature: float = 0.8, 
     max_tokens: int = 4096, 
     seed: int = 170, 
     max_length: int = 8192, 
@@ -39,7 +39,7 @@ def get_proposal(
             return []
         else:
             return response
-    elif policy_model == 'Qwen/Qwen2.5-72B-Instruct':
+    elif "Qwen/" in policy_model:
         while not response and cnt:
             response = siliconflow(prompt, model=policy_model, temperature=temperature, max_tokens=max_tokens)
             cnt -= 1
@@ -55,7 +55,7 @@ def get_proposal(
 def get_state(
     prompt: str, 
     world_method: str, 
-    temperature: float = 0.7, 
+    temperature: float = 0.8, 
     max_tokens: int = 4096, 
     seed: int = 170, 
     max_length: int = 8192, 
@@ -86,7 +86,7 @@ def get_state(
         else:
             return response
     
-    elif world_method == 'Qwen/Qwen2.5-72B-Instruct':
+    elif "Qwen/" in world_method:
         while not response and cnt:
             response = siliconflow(prompt, model=world_method, temperature=temperature, max_tokens=max_tokens)
             cnt -= 1
@@ -116,7 +116,7 @@ def get_state(
 def get_value(
     prompt: str, 
     reward_model: str, 
-    temperature: float = 0.7, 
+    temperature: float = 0.2, 
     max_tokens: int = 4096, 
     seed: int = 170, 
     max_length: int = 8192, 
@@ -145,7 +145,7 @@ def get_value(
             return []
         else:
             return response
-    elif reward_model == 'Qwen/Qwen2.5-72B-Instruct':
+    elif "Qwen/" in reward_model:
         while not response and cnt:
             response = siliconflow(prompt, model=reward_model, temperature=temperature, max_tokens=max_tokens)
             cnt -= 1
@@ -216,6 +216,8 @@ def washing_value_4_reward_model(response: str, low=0.0, high=5.0) -> str:
     if not response:
         print("模型调用没有返回结果!")
         return '', low
+    
+    response = response.replace('*', '')
     
     # 如果前缀不在response中，说明没有遵循指令，直接返回空字符串
     if "Reason" not in response or "Score" not in response:
